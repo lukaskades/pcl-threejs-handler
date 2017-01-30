@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
+
+project( Main )
+
+find_package( PCL 1.2 REQUIRED )
+find_package(VTK)
+
+file(GLOB_RECURSE Main_SOURCES "./../src/*.cpp")
+file(GLOB_RECURSE Main_HEADERS "./../include/*.hpp")
+
+set (Main_INCLUDE_DIRS "")
+foreach (_headerFile ${Main_HEADERS})
+    get_filename_component(_dir ${_headerFile} PATH)
+    list (APPEND Main_INCLUDE_DIRS ${_dir})
+endforeach()
+list(REMOVE_DUPLICATES Main_INCLUDE_DIRS)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
+
+include_directories(${Main_INCLUDE_DIRS})
+include_directories(${PCL_INCLUDE_DIRS})
+
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
+find_package( OpenCV REQUIRED )
+add_executable( Main ${Main_SOURCES} )
+target_link_libraries( Main ${OpenCV_LIBS} ${PCL_LIBRARIES})
+

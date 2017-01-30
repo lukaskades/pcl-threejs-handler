@@ -1,0 +1,940 @@
+<html> 
+	<head>
+		<title>Depth Data Viewer</title>
+		<style>
+		*{/*select all elements*/
+			font-family: 'roboto condensed', tahoma;
+			font-size:13px;
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0; /*padding properties are used to generate space around content*/
+			text-shadow: 0 -1px 0 rgba( 0,0,0, .6);
+		}
+		body {
+			color: #ffffff;
+			text-align: left;
+			font-weight: 100;
+			background-color: #111;
+			margin: 0px;
+			overflow: hidden;
+			background: #7d7e7d;
+		}
+		h1{ font-size: 16px;}
+		.title{ position: absolute; left: 10px; top: 10px ; z-index: 100; right: 60%;}
+		#container{ position: absolute; left: 0; top: 0; right: 0; bottom: 0 ;}
+		#panel{ padding: 20px; border-left: 10px solid rgba( 0, 0, 0, .2 );}
+		#panel p{ clear:both; padding: 5px 0; font-style: italic;}
+		#panel ul{ font-style: italic;}
+		#panel div{ padding-top: 10px; padding-bottom: 10px; border-top: 1px solid rgba( 255,255,255,.2 ); border-bottom: 1px solid rgba( 0, 0, 0, .2 );}
+		#panel{ position: absolute; right: 0; top: 0; bottom: 0; width: 360px; overflow: auto; background-color: rgba( 74, 74, 74, .4 ); z-index: 10;} /*Einstellungen, dass nach rechts gerückt, + farbe, form*/
+		#panel ul{ list-style-type: none; padding: 10px 0;}
+		#panel li{ position: relative; padding: 3px 0;}
+		#panel li input{ position: absolute; width: 50%; right: 40px;}
+		#panel li span{ position: absolute; right: 0; padding: 0 5px;}
+		.custom-file-input::before, .button{
+		color: black;
+		display: inline-block;
+		background: -webkit-linear-gradient(top, #e9e9e9, #c9c9c9);
+		background: -moz-linear-gradient(top, #e9e9e9, #c9c9c9);
+		border: 1px solid #999;
+		border-radius: 3px;
+		padding: 5px 8px;
+		outline: none;
+		white-space: nowrap;
+		-webkit-user-select: none;
+		cursor: pointer;
+		text-shadow: 1px 1px #fff;
+		font-weight: 700;
+		font-size: 10pt;
+		text-decoration: none;
+		font-weight: 600;
+		font-size: 12px;
+		margin-bottom: 5px;
+		}
+		.ui{ transition: opacity 250ms ease-out }
+		.hidden{ pointer-events:none; opacity: 0;}
+		.info{ height:156px; width:295px;background-color: rgba( 10, 10, 10, .4 ); opacity: 1;}
+		.info{ overflow:hidden; overflow-y:scroll;}
+		</style>
+	</head>
+	<body>
+		<div class="title ui">
+		</div>
+		<div id= "panel" class="ui">
+		  <div>
+		    <h1>About</h1>
+		    <p> load a file </p>
+		    <input id="uploadFile" name="uploadFile" class="custom-file-input" type="file">
+		  </div>
+		  <div>
+		    <h1>2D Illustrations</h1>
+		    <canvas height="105" width="140" style="width: 146px; height: 105px;" id="canvasorig"></canvas>
+		    <canvas height="105" width="140" style="width: 144px; height: 105px;" id="canvasrgb"></canvas>
+		    <p> <input class="renderModeR button" type="button" value="Reload Page" onclick="location.reload();"> </p>
+		  </div>
+		  <div>
+		    <h1>Render Mode</h1>
+		      <p>
+			<input class="renderMode button" type="button" value="Cloud" data-rendermode="cloud">
+			<input class="renderMode button" type="button" value="Mesh" data-rendermode="faces">
+		      </p>
+			<ul>
+			  <li>
+			    Point size:
+			    <input id="pointSize" type="range" max="7" min="1">
+			  </li>
+			</ul>
+		      Wireframe: <input type="checkbox" id="wireframe">
+		      Normals: <input type="checkbox" id="normals">
+		  </div>
+		  <div>
+		    <h1>Information</h1>
+		    <p id="information" class ="info" ></p>
+		  </div>
+		  <div>
+		    <h1>Plane Geometry</h1>
+		    <p>
+			<input class="renderModeP button" type="button" value="Load Plane" data-rendermodeP="solidplane">
+		    </p>
+		  </div>
+		  <div>
+		    <h1>StackBlur Method</h1>
+		      <p>Enable StackBlur: <input type="checkbox" id="blur"></p>
+		      <ul>
+			  <li>
+			    Smooth mesh:
+			    <input id="smoothRadius" type="range" max="20" min="0">
+			  </li>
+		      </ul>
+		      <canvas height="210" width="280" style="width: 290px; height: 218px;" id="canvasblur"></canvas>
+		  </div>
+		</div>
+		<div id="container"></div>
+		<h1 class="title">Depth Data Viewer</h1>
+		<script src="./lib/three.min.js"></script>
+		<script src="./lib/StackBlur.js"></script>
+		<script src="./lib/PLYLoader.js"></script>
+		<script>
+			'use strict';
+			// initialization of the input range objects (panel)
+
+			var settings = {
+				smoothRadius: 4,
+				pointSize: 3,
+			};
+
+			function loadSettings() {
+				if( localStorage ) {
+					if( localStorage.smoothRadius ) settings.smoothRadius = parseFloat( localStorage.smoothRadius );
+					if( localStorage.pointSize ) settings.pointSize = parseFloat( localStorage.pointSize );
+				}
+				if( settings.smoothRadius < 0 ) settings.smoothRadius = 0;
+				if( settings.smoothRadius > 20 ) settings.smoothRadius = 20;
+				if( settings.pointSize < 1 ) settings.pointSize = 1;
+				if( settings.pointSize > 7 ) settings.pointSize = 7;
+				for( var j in settings ) {
+					var el = document.getElementById( j );
+					el.value = settings[ j ];
+					var span = document.createElement( 'span' );
+					if( el.getAttribute( 'type' ) == 'range' ) {
+						el.parentNode.insertBefore( span, el.nextSibling );
+					}
+					span.textContent = el.value;
+					( function( s ) { el.addEventListener( 'change', function( e ) {
+						var id = this.getAttribute( 'id' );
+						if( id == 'smoothRadius' ) {
+							if( this.value < 0 ) this.value = 0;
+							if( this.value > 20 ) this.value = 20;
+						}
+						if( id == 'pointSize' ) {
+							if( this.value < 1 ) this.value = 1;
+							if( this.value > 7 ) this.value = 7;
+						}
+						settings[ id ] = this.value;
+						s.textContent = this.value;
+						saveSettings();
+					} ); } )( span );
+				}
+			}
+
+			function saveSettings() {
+				for( var j in settings ) {
+					localStorage[ j ] = settings[ j ];
+				}
+
+			}
+
+			loadSettings();
+			var ui = [].slice.call( document.querySelectorAll( '.ui' ) ); // for hiding panel
+			var container = document.getElementById( 'container' ); // container for 3D Window
+			window.addEventListener( 'load', init );
+
+			function init() {
+
+				// Variable Definitions
+
+				// geometric quantities
+
+				var width; // original image width
+				var height; // original image height
+				var scalex; // scale in width direction for illustration at the panel
+				var scaley; // scale in height direction for illustration at the panel
+				var max = -100000; // variables for intensity values of the depth image
+				var min = 100000;
+				var shift; // array for saving the shift of the point cloud to (0,0,0)
+
+				// three.js objects
+				var xyz, rgb, faces;
+				var normalsall = new THREE.Object3D();
+
+				// render variables
+				var renderMode = 1;
+				var renderModeP = 0;
+				var planeloaded = false;
+				var generatednormals = 'none'
+
+				// canvas for 2D illustrations
+				var orig = document.getElementById("canvasorig");
+				var origtx = orig.getContext("2d");
+				var oimgData = origtx.createImageData(140, 105); //original depth image scaled
+
+				var crig = document.getElementById("canvasrgb");
+				var crigtx = crig.getContext("2d");
+				var cimgData = crigtx.createImageData(140, 105); //original color image scaled
+
+				// stackblur variables
+				var blurradius;
+				var blured = false;
+				var rcanvas = document.createElement( 'canvas' ),
+				rctx = rcanvas.getContext( '2d' );
+				var rimgData; //original depth image unscaled
+
+				// initialization of the buttons (panel)
+				var modeButtons = [].slice.call( document.querySelectorAll( '.renderMode' ) );
+				modeButtons.forEach( function( el ) {
+					el.addEventListener( 'click', function( ev ) {
+						switch( el.getAttribute( 'data-rendermode' ) ) {
+							case 'cloud':
+							renderMode = 1;
+							break;
+							case 'faces':
+							renderMode = 2;
+							break;
+						}
+						ev.preventDefault();
+					});
+				});
+
+				var modeButtonsP = [].slice.call( document.querySelectorAll( '.renderModeP' ) );
+				modeButtonsP.forEach( function( el ) {
+					el.addEventListener( 'click', function( ev ) {
+						switch( el.getAttribute( 'data-rendermodeP' ) ) {
+							case 'solidplane':
+							renderModeP = 1;
+							break;
+						}
+						ev.preventDefault();
+					});
+				});
+
+				// camera and container variables
+				var renderer, scene, camera, fov = 75, nFov = fov, distance = 500, nDistance = distance;
+
+				var isUserInteracting = false, isUserPinching = false;
+				var onPointerDownPointerX, onPointerDownPointerY, onPointerDownLon, onPointerDownLat;
+				var lon = 90, lat = 0, nLon = lon, nLat = lat;
+				var oDist, oFov;
+
+				// initialization and necessary functions for the 3D window
+				scene = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera( fov, window.innerWidth / window.innerHeight, 0.1, 1000 );
+				camera.target = new THREE.Vector3( 0, 0, 0 );
+				camera.position.y = 500;
+				scene.add( camera );
+
+				renderer = new THREE.WebGLRenderer( { antialias: true, alpha: false } );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.sortObjects = true;
+
+				container.appendChild( renderer.domElement );
+
+				window.addEventListener( 'resize', onResize );
+
+				container.addEventListener( 'mousedown', onContainerMouseDown, false );
+				container.addEventListener( 'mousemove', onContainerMouseMove, false );
+				container.addEventListener( 'mouseup', onContainerMouseUp, false );
+
+				container.addEventListener( 'touchstart', onTouchStart, false );
+				container.addEventListener( 'touchmove', onTouchMove, false );
+				container.addEventListener( 'touchend', onTouchEnd, false );
+				container.addEventListener( 'touchcancel', onTouchEnd, false );
+
+				container.addEventListener( 'mousewheel', onContainerMouseWheel, false );
+				container.addEventListener( 'DOMMouseScroll', onContainerMouseWheel, false); 
+
+				function onResize() {
+					var w = container.clientWidth,
+					h = container.clientHeight;
+					renderer.setSize( w, h );
+					camera.aspect = w / h;
+					camera.updateProjectionMatrix();
+				}
+
+				function onContainerMouseDown( event ) {
+					event.preventDefault();
+					startInteraction();
+					isUserInteracting = true;
+					var el = document.querySelectorAll( '.hide' );
+					for( var j = 0; j < el.length; j++ ) {
+						el[ j ].style.opacity = 0;
+						el[ j ].style.pointerEvents = 'none';
+					}
+					onPointerDownPointerX = event.clientX;
+					onPointerDownPointerY = event.clientY;
+					onPointerDownLon = lon;
+					onPointerDownLat = lat;
+					
+				}
+
+				function onContainerMouseMove( event ) {
+					event.preventDefault();
+					var lookSpeed = .15;
+					var f = fov / 500;
+					if( navigator.pointer && navigator.pointer.isLocked ) {
+						nLon = event.webkitMovementX * f;
+						nLat = event.webkitMovementY * f;
+					} else if ( document.mozPointerLockElement == document.body ){
+						if( Math.abs( event.mozMovementX ) < 100 || Math.abs( event.mozMovementY ) < 100 ) { 
+							nLon -= event.mozMovementX * f;
+							nLat -= event.mozMovementY * f;
+						}
+					} else {
+						if ( isUserInteracting ) {
+							var dx = ( onPointerDownPointerX - event.clientX ) * f;
+							var dy = ( onPointerDownPointerY - event.clientY ) * f;
+							nLon = dx + onPointerDownLon;
+							nLat = dy + onPointerDownLat;
+						}
+					}
+				}
+
+				function onContainerMouseUp( event ) {
+					event.preventDefault();
+					endInteraction();
+					isUserInteracting = false;
+					var el = document.querySelectorAll( '.hide' );
+					for( var j = 0; j < el.length; j++ ) {
+						el[ j ].style.opacity = 1;
+						el[ j ].style.pointerEvents = 'auto';
+					}
+				}
+
+				function onContainerMouseWheel( event ) {
+					event = event ? event : window.event;
+					nDistance = nDistance - ( event.detail ? event.detail * -5 : event.wheelDelta / 8 );
+				}
+
+				function onTouchStart( event ) {
+					startInteraction();
+					isUserInteracting = true;
+					var el = document.querySelectorAll( '.hide' );
+					for( var j = 0; j < el.length; j++ ) {
+						el[ j ].style.opacity = 0;
+						el[ j ].style.pointerEvents = 'none';
+					}
+					if( event.touches.length == 2 ) {
+						var t = event.touches;
+						oDist = Math.sqrt(
+								Math.pow( t[ 0 ].clientX - t[ 1 ].clientX, 2 ) +
+								Math.pow( t[ 0 ].clientY - t[ 1 ].clientY, 2 ) );
+						oFov = nFov;
+						isUserPinching = true;
+					} else {
+					  var t = event.touches[ 0 ];
+					  onPointerDownPointerX = t.clientX;
+					  onPointerDownPointerY = t.clientY;
+					  onPointerDownLon = lon;
+					  onPointerDownLat = lat;
+					}
+				  event.preventDefault();
+				}
+
+				function onTouchMove( event ) {
+					if( event.touches.length == 2 ) {
+						var t = event.touches;
+						var dist = Math.sqrt(
+						Math.pow( t[ 0 ].clientX - t[ 1 ].clientX, 2 ) +
+						Math.pow( t[ 0 ].clientY - t[ 1 ].clientY, 2 ) );
+						nFov = oFov + .1 * ( oDist - dist );
+					} else {
+					  var t = event.touches[ 0 ];
+					  nLon = .1 * ( t.clientX - onPointerDownPointerX ) + onPointerDownLon;
+					  nLat = .1 * ( t.clientY - onPointerDownPointerY ) + onPointerDownLat;
+					}
+				  event.preventDefault();
+				}
+
+				function onTouchEnd( event ) {
+					endInteraction();
+					event.preventDefault();
+					isUserInteracting = false;
+					var el = document.querySelectorAll( '.hide' );
+					for( var j = 0; j < el.length; j++ ) {
+						el[ j ].style.opacity = 1;
+						el[ j ].style.pointerEvents = 'auto';
+					}
+				}
+
+				// functions for hiding panel
+				function startInteraction() {
+					ui.forEach( function( e ) { e.classList.add( 'hidden' ) } );
+				}
+
+				function endInteraction() {
+					ui.forEach( function( e ) { e.classList.remove( 'hidden' ) } );
+				}
+
+				// Generating the coordinate axes
+				var dirx = new THREE.Vector3( 1, 0, 0 );
+				var diry = new THREE.Vector3( 0, 1, 0 );
+				var dirz = new THREE.Vector3( 0, 0, 1 );
+				var origin = new THREE.Vector3( 0, 0, 0 );
+				var lengtha = 50;
+
+				var arrowHelperx = new THREE.ArrowHelper( dirx, origin, lengtha, 0xff0000 );
+				var arrowHelpery = new THREE.ArrowHelper( diry, origin, lengtha, 0x00ff00 );
+				var arrowHelperz = new THREE.ArrowHelper( dirz, origin, lengtha, 0x0000ff );
+
+				scene.add( arrowHelperx );
+				scene.add( arrowHelpery );
+				scene.add( arrowHelperz );
+
+				// Function for rendering (core)
+				function render() {
+
+					//scene configurations
+					requestAnimationFrame( render );
+
+					lon += ( nLon - lon ) * .1;
+					lat += ( nLat - lat ) * .1;
+					fov += ( nFov - fov ) * .1; 
+					distance += ( nDistance - distance ) * .1; 
+
+					camera.fov = fov;
+					camera.updateProjectionMatrix();
+					
+					lat = Math.max( - 85, Math.min( 85, lat ) );
+					var phi = ( 90 - lat ) * Math.PI / 180;
+					var theta = lon * Math.PI / 180;
+
+					camera.position.x = distance * Math.sin( phi ) * Math.cos( theta );
+					camera.position.y = distance * Math.cos( phi );
+					camera.position.z = distance * Math.sin( phi ) * Math.sin( theta );
+
+					camera.lookAt( camera.target );
+					renderer.render( scene, camera );
+					
+					//configurations for the different objects
+					if(xyz) {
+						xyz.visible = ( renderMode == 1 );
+						if(xyz.visible == true) {
+							loadSettings();
+							if(xyz.material.size != settings.pointSize) {
+								xyz.material.size = settings.pointSize;
+							}
+						}
+						var blur = document.getElementById("canvasblur"); //blured image scaled
+						var blurtx = blur.getContext("2d");
+						if(document.getElementById("blur").checked == true) {
+							if(blurradius != settings.smoothRadius) {
+								blurradius = settings.smoothRadius;
+								stackblur(xyz.geometry,blurradius);
+								if(planeloaded == true) {
+									for (var i = 0; i < xyz.geometry.vertices.length; i++) {
+										var yy = i%height;
+										var xx = (i-yy)/height;
+										faces.geometry.vertices[i] = xyz.geometry.vertices[yy*width+xx];
+									}
+									faces.geometry.verticesNeedUpdate = true;
+								}
+							}
+						}
+						else if(blured == true) { 
+							stackblur(xyz.geometry,0);
+							if(planeloaded == true) {
+								for (var i = 0; i < xyz.geometry.vertices.length; i++) {
+									var yy = i%height;
+									var xx = (i-yy)/height;
+									faces.geometry.vertices[i] = xyz.geometry.vertices[yy*width+xx];
+								}
+								faces.geometry.verticesNeedUpdate = true;
+							}
+							blurtx.clearRect(0, 0, blur.width, blur.height) ;
+							blured = false;
+						}
+					}
+
+					if( normalsall ) {
+						normalsall.visible = ( document.getElementById("normals").checked == true);
+					}
+
+					if( faces ) {
+						faces.visible = ( renderMode == 2);
+						if(planeloaded == false) faces.material.wireframe = ( document.getElementById("wireframe").checked == true );
+						else {
+							faces.material.materials[0].wireframe = ( document.getElementById("wireframe").checked == true );
+						}
+					}
+
+					if(renderModeP == 1)
+					{
+						if(planeloaded == false)
+							loadplane();
+					}
+				}
+
+				// return coordinates of the center of the cloud neglecting points with z = 0
+				function computecenter(cloud) {
+					var cent = [0,0,0];
+					var counter = 0;
+					for (var i=0; i< cloud.vertices.length-1; i=i+1) {
+						if(cloud.vertices[i].z!=0) {
+							cent[0]=cent[0]+cloud.vertices[i].x;
+							cent[1]=cent[1]+cloud.vertices[i].y;
+							cent[2]=cent[2]+cloud.vertices[i].z;
+							counter = counter+1;
+						}
+					}
+					cent[0] = cent[0]/counter;
+					cent[1] = cent[1]/counter;
+					cent[2] = cent[2]/counter;
+					return cent;
+				}
+
+				// blur the depth image and transfer values to pointcloud
+				function stackblur(cloud,radius) {
+					blured = true;
+
+					// calculations for the blured image at the pnael
+					var blur = document.getElementById("canvasblur"); //blured image scaled
+					var blurtx = blur.getContext("2d");
+
+					var bimgData = blurtx.createImageData(280, 210);
+
+					for (var v = 0; v < 2*height*scaley; v=v+2) {
+						for (var u = 0; u < 2*width*scalex; u=u+2) {
+							bimgData.data[(v*bimgData.width+u)*4+0] = oimgData.data[(v/2*oimgData.width+u/2)*4+0];
+							bimgData.data[(v*bimgData.width+u)*4+1] = oimgData.data[(v/2*oimgData.width+u/2)*4+1];
+							bimgData.data[(v*bimgData.width+u)*4+2] = oimgData.data[(v/2*oimgData.width+u/2)*4+2];
+							bimgData.data[(v*bimgData.width+u)*4+3] = 255;
+							bimgData.data[(v*bimgData.width+u+1)*4+0] = oimgData.data[(v/2*oimgData.width+u/2)*4+0];
+							bimgData.data[(v*bimgData.width+u+1)*4+1] = oimgData.data[(v/2*oimgData.width+u/2)*4+1];
+							bimgData.data[(v*bimgData.width+u+1)*4+2] = oimgData.data[(v/2*oimgData.width+u/2)*4+2];
+							bimgData.data[(v*bimgData.width+u+1)*4+3] = 255;
+							bimgData.data[((v+1)*bimgData.width+u)*4+0] = oimgData.data[(v/2*oimgData.width+u/2)*4+0];
+							bimgData.data[((v+1)*bimgData.width+u)*4+1] = oimgData.data[(v/2*oimgData.width+u/2)*4+1];
+							bimgData.data[((v+1)*bimgData.width+u)*4+2] = oimgData.data[(v/2*oimgData.width+u/2)*4+2];
+							bimgData.data[((v+1)*bimgData.width+u)*4+3] = 255;
+							bimgData.data[((v+1)*bimgData.width+u+1)*4+0] = oimgData.data[(v/2*oimgData.width+u/2)*4+0];
+							bimgData.data[((v+1)*bimgData.width+u+1)*4+1] = oimgData.data[(v/2*oimgData.width+u/2)*4+1];
+							bimgData.data[((v+1)*bimgData.width+u+1)*4+2] = oimgData.data[(v/2*oimgData.width+u/2)*4+2];
+							bimgData.data[((v+1)*bimgData.width+u+1)*4+3] = 255;
+						}
+					}
+
+					blurtx.putImageData(bimgData, 0, 0);
+
+					stackBlurCanvasRGB('canvasblur', 0, 0, 280, 210, 2*radius/(scalex+scaley));
+
+					bimgData = blurtx.getImageData(0, 0, 280, 210);
+
+					// calculations for the unscaled depth data and the point cloud correspondingly
+					var canvas = document.createElement( 'canvas' ),
+					ctx = canvas.getContext( '2d' );
+					canvas.width = width;
+					canvas.height = height;
+					var imgData = ctx.createImageData(width, height);  //blured image unscaled
+					for (var i = 0; i < width*height; i += 1) {
+						imgData.data[i*4+0] = rimgData.data[i*4+0];
+						imgData.data[i*4+1] = rimgData.data[i*4+1];
+						imgData.data[i*4+2] = rimgData.data[i*4+2];
+						imgData.data[i*4+3] = 255;
+					}
+					ctx.putImageData(imgData,0,0);
+					stackBlurCanvasRGB( canvas, 0, 0, canvas.width, canvas.height, radius );
+					imgData = ctx.getImageData(0, 0, width, height);
+					
+					for (i = 0; i < width*height; i += 1) {
+						cloud.vertices[i].z = imgData.data[i*4+0]*(max-min)/255+min;
+					}
+					cloud.verticesNeedUpdate = true;
+				}
+
+				// load xyz coordinates of the point cloud and generate point cloud
+				function loadxyz(filename,col,nor,mes){
+					var oPlyLoader = new THREE.PLYLoader();
+					oPlyLoader.load('./data/threejsfiles/'+filename+'xyz.three', function(xyzcloud) {
+						xyzcloud.scale(100,100,100);
+						xyzcloud.rotateZ(-Math.PI);
+						xyzcloud.rotateY(-Math.PI);
+						shift = computecenter(xyzcloud);
+						xyzcloud.translate(-shift[0],-shift[1],-shift[2]);
+						distance = -shift[2];
+						nDistance = distance;
+						xyz = new THREE.Points(xyzcloud,new THREE.PointsMaterial( {size: settings.pointSize, vertexColors: true} ));
+						scene.add(xyz);
+						xyz.visible = false;
+
+						for (var i = 0; i < xyz.geometry.vertices.length; i++) {
+							if(xyz.geometry.vertices[i].z<min) min = xyz.geometry.vertices[i].z;
+							if(xyz.geometry.vertices[i].z>max) max = xyz.geometry.vertices[i].z;
+						}
+
+						// write depth data to canvas at the panel ( for illustration of the depth image)
+						for (var v = 0; v < height*scaley; v++) {
+							for (var u = 0; u < width*scalex; u++) {
+								var value = 255-Math.round((xyz.geometry.vertices[Math.round(((v+0.5)/scaley)-0.5)*width+Math.round((u+0.5)/scalex-0.5)].z-min)/(max-min)*255);
+								oimgData.data[(v*oimgData.width+u)*4+0] = value;
+								oimgData.data[(v*oimgData.width+u)*4+1] = value;
+								oimgData.data[(v*oimgData.width+u)*4+2] = value;
+								oimgData.data[(v*oimgData.width+u)*4+3] = 255;
+							}
+						}
+						origtx.putImageData(oimgData, 0, 0);
+
+						// write depth data to a canvas covered by the 3D window for being able to stack blur the unscaled depth image
+						for (var i = 0; i < xyz.geometry.vertices.length; i += 1) {
+							rimgData.data[i*4+0] = Math.floor((xyz.geometry.vertices[i].z-min)/(max-min)*255);
+							rimgData.data[i*4+1] = Math.floor((xyz.geometry.vertices[i].z-min)/(max-min)*255);
+							rimgData.data[i*4+2] = Math.floor((xyz.geometry.vertices[i].z-min)/(max-min)*255);
+							rimgData.data[i*4+3] = 255;
+						}
+						rctx.putImageData(rimgData,0,0);
+
+						if(document.getElementById("blur").checked == true) {
+							blurradius = settings.smoothRadius;
+							stackblur(xyz.geometry,blurradius);
+						}
+
+						// next, load rgb-data, if possible
+						if(col!="c")
+						{
+							// no rgb-data available -> default = white
+							for(var i = 0; i < xyz.geometry.vertices.length; i++)
+								xyz.geometry.colors[i] = new THREE.Color(1,1,1);
+							
+							// next load normals, if available, otherwise faces
+							if(nor=="n")
+								loadnormals(filename,mes);
+							else if(mes=="f")
+								loadfaces(filename);
+						}
+						else
+							loadrgb(filename,nor,mes);
+
+						// Write info, that xyz-coordinates are loaded
+						var new_element = document.createElement('p');
+						new_element.textContent = "-- xyz loaded --";
+						info.appendChild(new_element);
+					});
+				}
+
+				// load rgb data
+				function loadrgb(filename,nor,mes){
+					var oPlyLoader = new THREE.PLYLoader();
+					oPlyLoader.load('./data/threejsfiles/'+filename+'rgb.three', function(rgbcloud) {
+						rgb = rgbcloud;
+
+						// transfer colors to the point cloud geometry
+						for(var i = 0; i < xyz.geometry.vertices.length; i++)
+						    xyz.geometry.colors[i] = new THREE.Color(rgb.vertices[i].x/255,rgb.vertices[i].y/255,rgb.vertices[i].z/255);
+
+						// write color data to canvas at the panel ( for illustration of the color image)
+						for (var v = 0; v < height*scaley; v++) {
+							for (var u = 0; u < width*scalex; u++) {
+								cimgData.data[(v*cimgData.width+u)*4+0] = rgb.vertices[Math.round(((v+0.5)/scaley)-0.5)*width+Math.round((u+0.5)/scalex-0.5)].x;
+								cimgData.data[(v*cimgData.width+u)*4+1] = rgb.vertices[Math.round(((v+0.5)/scaley)-0.5)*width+Math.round((u+0.5)/scalex-0.5)].y;
+								cimgData.data[(v*cimgData.width+u)*4+2] = rgb.vertices[Math.round(((v+0.5)/scaley)-0.5)*width+Math.round((u+0.5)/scalex-0.5)].z;
+								cimgData.data[(v*cimgData.width+u)*4+3] = 255;
+							}
+						}
+						crigtx.putImageData(cimgData, 0, 0);
+
+						// next load normals, if available, otherwise faces
+						if(nor=="n")
+							loadnormals(filename,mes);
+						else if(mes=="f")
+							loadfaces(filename);
+
+						// Write info, that rgb-data is loaded
+						var new_element = document.createElement('p');
+						new_element.textContent = "-- rgb loaded --";
+						info.appendChild(new_element);
+					});
+				}
+
+				// load normals
+				function loadnormals(filename,mes){
+					var oPlyLoader = new THREE.PLYLoader();
+					oPlyLoader.load('./data/threejsfiles/'+filename+'normals.three', function(normalscloud) {
+						generatednormals = 'file';
+
+						// generate an arrow for each normal and save all of them in normalsall
+						for( var i = 0; i < xyz.geometry.vertices.length; i++) {
+							if(xyz.geometry.vertices[i].z<-shift[2]-0.1 && Math.floor(Math.random() * Math.floor(xyz.geometry.vertices.length/1000))==0) {
+							var centroid = new THREE.Vector3(xyz.geometry.vertices[i].x, xyz.geometry.vertices[i].y, xyz.geometry.vertices[i].z );
+							var direction = new THREE.Vector3(normalscloud.vertices[i].x, -normalscloud.vertices[i].y, -normalscloud.vertices[i].z )
+							var arrow = new THREE.ArrowHelper(
+								direction,
+								centroid,
+								15,
+								0x3333FF );
+							normalsall.add(arrow);
+							}
+						}
+						scene.add(normalsall);
+						normalsall.visible = false;
+
+						// if faces are avaible, load faces
+						if(mes=="f")
+							loadfaces(filename);
+
+						// Write info, that normals-data is loaded
+						var new_element = document.createElement('p');
+						new_element.textContent = "-- normals loaded --";
+						info.appendChild(new_element);
+					});
+				}
+
+				// load faces
+				function loadfaces(filename){
+					var oPlyLoader = new THREE.PLYLoader();
+					oPlyLoader.load('./data/threejsfiles/'+filename+'mesh.three', function(facescloud) {
+						faces = new THREE.Mesh(xyz.geometry, new THREE.MeshBasicMaterial( {  wireframe: false, vertexColors: THREE.FaceColors, side: THREE.DoubleSide}));
+
+						// save each face in a mesh and calculate color by averaging over vertices
+						for (var i=0; i< facescloud.vertices.length; i=i+1) {
+							var face = facescloud.vertices[i];
+							var color = xyz.geometry.colors;
+							faces.geometry.faces[i] = new THREE.Face3(face.x, face.y, face.z)
+							var facecolor = new THREE.Color();
+							facecolor.r = (color[face.x].r+color[face.y].r+color[face.z].r)/3;
+							facecolor.g = (color[face.x].g+color[face.y].g+color[face.z].g)/3;
+							facecolor.b = (color[face.x].b+color[face.y].b+color[face.z].b)/3;
+							faces.geometry.faces[i].color = facecolor;
+						}
+						faces.geometry.colorsNeedUpdate = true;
+
+						// if there were no normals available, compute vertex normals from faces via three.js
+						if(normalsall.children.length==0) loadfacenormals();
+
+						scene.add(faces);
+						faces.visible = false;
+
+						// Write info, that face-data is loaded
+						var new_element = document.createElement('p');
+						new_element.textContent = "-- mesh loaded --";
+						info.appendChild(new_element);
+					});
+				}
+
+				// compute vertex normals (called when no normals were loaded)
+				function loadfacenormals() {
+					generatednormals = "faces";
+
+					// compute vertex normals
+					faces.geometry.computeFaceNormals();
+					faces.geometry.computeVertexNormals( true );
+
+					// array for genearting for each vertex only one normal
+					var vertexdefined = new Array(faces.geometry.vertices.length);
+					for (var i = 0; i < vertexdefined.length; i++) vertexdefined[i] = false;
+
+					// generate for each vertex one normal
+					for (var i = 0; i < faces.geometry.faces.length; i++)
+					{
+						var face = faces.geometry.faces[i];
+						if(vertexdefined[face.a]==false)
+						{
+							if(faces.geometry.vertices[face.a].z<-shift[2]-0.1 && Math.floor(Math.random() * Math.floor(xyz.geometry.vertices.length/1000))==0) {
+								var centroid = new THREE.Vector3(faces.geometry.vertices[face.a].x, faces.geometry.vertices[face.a].y, faces.geometry.vertices[face.a].z );
+								var direction;
+								if(face.vertexNormals[0].z>0) {
+									direction = new THREE.Vector3(face.vertexNormals[0].x, face.vertexNormals[0].y, face.vertexNormals[0].z )
+								}
+								else {
+									direction = new THREE.Vector3(-face.vertexNormals[0].x, -face.vertexNormals[0].y, -face.vertexNormals[0].z )
+								}
+								var arrow = new THREE.ArrowHelper(
+									direction,
+									centroid,
+									15,
+									0x3333FF );
+								normalsall.add(arrow);
+							}
+							vertexdefined[face.a]=true;
+						}
+						if(vertexdefined[face.b]==false)
+						{
+							if(faces.geometry.vertices[face.b].z<-shift[2]-0.1 && Math.floor(Math.random() * 4)==0) {
+								var centroid = new THREE.Vector3(faces.geometry.vertices[face.b].x, faces.geometry.vertices[face.b].y, faces.geometry.vertices[face.b].z );
+								var direction;
+								if(face.vertexNormals[1].z>0) {
+									direction = new THREE.Vector3(face.vertexNormals[1].x, face.vertexNormals[1].y, face.vertexNormals[1].z )
+								}
+								else {
+									direction = new THREE.Vector3(-face.vertexNormals[1].x,-face.vertexNormals[1].y, -face.vertexNormals[1].z )
+								}
+								var arrow = new THREE.ArrowHelper(
+									direction,
+									centroid,
+									15,
+									0x3333FF );
+								normalsall.add(arrow);
+							}
+							vertexdefined[face.b]=true;
+						}
+						if(vertexdefined[face.c]==false)
+						{
+							if(faces.geometry.vertices[face.c].z<-shift[2]-0.1 && Math.floor(Math.random() * 4)==0) {
+								var centroid = new THREE.Vector3(faces.geometry.vertices[face.c].x, faces.geometry.vertices[face.c].y, faces.geometry.vertices[face.c].z );
+								var direction;
+								if(face.vertexNormals[2].z>0) {
+									direction = new THREE.Vector3(face.vertexNormals[2].x, face.vertexNormals[2].y, face.vertexNormals[2].z )
+								}
+								else {
+									direction = new THREE.Vector3(-face.vertexNormals[2].x, -face.vertexNormals[2].y, -face.vertexNormals[2].z )
+								}
+								var arrow = new THREE.ArrowHelper(
+									direction,
+									centroid,
+									15,
+									0x3333FF );
+								normalsall.add(arrow);
+							}
+							vertexdefined[face.c]=true;
+						}
+					}
+					scene.add(normalsall);
+					normalsall.visible = false;
+				}
+
+				// load plane geometry and delete mesh, if it exists
+				function loadplane() {
+					planeloaded = true;
+					var planegeometry = new THREE.PlaneGeometry( 1, 1, height-1, width-1 );
+
+					// write vertices from xyz point cloud to planegeometry
+					for (var i = 0; i < xyz.geometry.vertices.length; i++) {
+						var yy = i%height;
+						var xx = (i-yy)/height;
+						planegeometry.vertices[i] = xyz.geometry.vertices[yy*width+xx];
+					}
+
+					// material for keeping faces with z values equals zero transparent
+					var materials = [
+						new THREE.MeshBasicMaterial( {  wireframe: true, vertexColors: THREE.FaceColors, side: THREE.DoubleSide} ),
+						new THREE.MeshBasicMaterial( { transparent: true, opacity: 0 } )
+					];
+
+					// compute materialIndices for the faces
+					var planematerial = new THREE.MeshFaceMaterial( materials );
+						for (var i=0; i< width-1; i=i+1) {
+							for (var j=0; j < height-1; j=j+1)
+							{
+								var facea = planegeometry.faces[2*(i*(height-1)+j)];
+								var faceb = planegeometry.faces[2*(i*(height-1)+j)+1];
+								if((planegeometry.vertices[facea.a].z>-shift[2]-0.1)|(planegeometry.vertices[facea.b].z>-shift[2]-0.1)|(planegeometry.vertices[facea.c].z>-shift[2]-0.1)) {
+									facea.materialIndex=1;
+								}
+								else {
+									facea.materialIndex=0;
+								}
+								if((planegeometry.vertices[faceb.a].z>-shift[2]-0.1)|(planegeometry.vertices[faceb.b].z>-shift[2]-0.1)|(planegeometry.vertices[faceb.c].z>-shift[2]-0.1)) {
+									faceb.materialIndex=1; 
+								}
+								else {
+									faceb.materialIndex=0;
+								}
+								var yy = (i*height+j)%height;
+								var xx = ((i*height+j)-yy)/height;
+								facea.color = xyz.geometry.colors[yy*width+xx];
+								faceb.color = xyz.geometry.colors[yy*width+xx];
+							}
+						}
+
+					// delete mesh, if it exists, and/or write planegeometry + planematerial to it
+					if(faces) {
+						faces.geometry.dispose();
+						faces.material.dispose();
+						faces.geometry = planegeometry;
+						faces.material = planematerial;
+					}
+					else {
+						faces = new THREE.Mesh(planegeometry, planematerial);
+					}
+
+					scene.add(faces);
+					faces.visible = false;
+
+					// delete normals, if they were generated from the loaded faces, and compute new faces according to planegeometry
+					if(generatednormals != 'file') {
+						if(normalsall.children.length>0) {
+							for( var i = normalsall.children.length-1; i>=0; i--)
+								normalsall.remove(normalsall.children[i]);
+						}
+						loadfacenormals();
+					}
+				}
+
+				// handle loading data
+				function handleFileSelect(evt) {
+					var files = evt.target.files;
+					for (var i = 0, f; f = files[i]; i++) {
+						var reader = new FileReader();
+						reader.readAsDataURL(f);
+						var file = f.name;
+
+						// compute height and width
+						var key = file.length-1;
+						var keyx;
+						while(file[key]!="_") key--;
+						keyx = key;
+						while(file[keyx]!="x") keyx--;
+						height = parseInt(file.slice(keyx+1,key))
+						key = keyx;
+						while(file[key]!="_") key--;
+						width = parseInt(file.slice(key+1,keyx));
+
+						// compute scales
+						scalex = 140/width;
+						scaley = 105/height;
+
+						// fix canvas size
+						rcanvas.width = width;
+						rcanvas.height = height;
+						rimgData = rctx.createImageData(width, height); //original depth image unscaled
+
+						// start loading data
+						if(file.slice(file.length-10,file.length-9)=="x")
+							loadxyz(file.slice(0,file.length-10),file.slice(file.length-9,file.length-8),file.slice(file.length-8,file.length-7),file.slice(file.length-7,file.length-6)); 
+					}
+				}
+
+				// Waiting for uploaded file
+				document.getElementById( 'uploadFile' ).addEventListener( 'change', handleFileSelect, false);
+
+				// Initializing information box
+				var info = document.getElementById("information")
+				info.innerHTML = "Welcome";
+
+				//Reload button hinzufügen
+
+				// Start rendering
+				onResize();
+				render();
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,20 @@
+\BOOKMARK [1][-]{Doc-Start}{I Contents}{}% 1
+\BOOKMARK [1][-]{section.1}{Project description}{}% 2
+\BOOKMARK [1][-]{section.2}{Project structure and workflow}{}% 3
+\BOOKMARK [1][-]{section.3}{Preparation of the dataset}{}% 4
+\BOOKMARK [2][-]{subsection.3.1}{File Structure}{section.3}% 5
+\BOOKMARK [2][-]{subsection.3.2}{Generate depth and color images with Matlab}{section.3}% 6
+\BOOKMARK [2][-]{subsection.3.3}{Interpolate depth data}{section.3}% 7
+\BOOKMARK [1][-]{section.4}{Point Cloud Library - Main written programs and functions}{}% 8
+\BOOKMARK [2][-]{subsection.4.1}{Main program}{section.4}% 9
+\BOOKMARK [2][-]{subsection.4.2}{Creation}{section.4}% 10
+\BOOKMARK [2][-]{subsection.4.3}{Visualization}{section.4}% 11
+\BOOKMARK [2][-]{subsection.4.4}{Processing}{section.4}% 12
+\BOOKMARK [2][-]{subsection.4.5}{Tools}{section.4}% 13
+\BOOKMARK [2][-]{subsection.4.6}{Saving and postprocessing}{section.4}% 14
+\BOOKMARK [1][-]{section.5}{Three.js - Loading and visualizing point clouds}{}% 15
+\BOOKMARK [2][-]{subsection.5.1}{General usage}{section.5}% 16
+\BOOKMARK [2][-]{subsection.5.2}{Plane geometry}{section.5}% 17
+\BOOKMARK [2][-]{subsection.5.3}{Stack blur}{section.5}% 18
+\BOOKMARK [1][-]{section.6}{Discussion}{}% 19
+\BOOKMARK [1][-]{section*.22}{II References}{}% 20

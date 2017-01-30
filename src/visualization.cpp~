@@ -1,0 +1,179 @@
+#include "visualization.hpp"
+
+void viewCloud (pcl::PolygonMesh &mesh)
+{
+  std::cout<<"\nvisualize...proceed with closing the viewer..."<<std::endl;
+  pcl::PointCloud<pcl::PointXYZ> pc;
+  pcl::fromPCLPointCloud2(mesh.cloud, pc);
+  double center_z= 0;
+  double counter = 0;
+  for(int i = 0; i< pc.points.size(); i++)
+     if(pc.points[i].z!=0) {
+           center_z=center_z+pc.points[i].z;
+	   counter++;
+     }
+  center_z=center_z/counter;
+  Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+  transform_2.translation() << 0.0, 0.0, -center_z;
+  transform_2.rotate (Eigen::AngleAxisf (M_PI, Eigen::Vector3f::UnitZ()));
+  pcl::transformPointCloud (pc, pc, transform_2);
+  pcl::toPCLPointCloud2(pc, mesh.cloud);
+
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+  viewer->setBackgroundColor (0, 0, 0);
+  viewer->addPolygonMesh(mesh, "mesh");
+  viewer->resetCameraViewpoint("mesh");
+  viewer->addCoordinateSystem (1);
+  viewer->initCameraParameters ();
+  while(!viewer->wasStopped())
+  {
+    viewer->spinOnce(100);
+    boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+  }
+
+  pcl::fromPCLPointCloud2(mesh.cloud, pc);
+  transform_2 = Eigen::Affine3f::Identity();
+  transform_2.rotate (Eigen::AngleAxisf (-M_PI, Eigen::Vector3f::UnitZ()));
+  transform_2.translation() << 0.0, 0.0, center_z;
+  pcl::transformPointCloud (pc, pc, transform_2);
+  pcl::toPCLPointCloud2(pc, mesh.cloud); 
+  std::cout<<"...visualization finished" <<std::endl;
+}
+
+void viewCloud (pcl::TextureMesh &texturemesh)
+{
+  std::cout<<"\nvisualize...proceed with closing the viewer..."<<std::endl;
+  pcl::PointCloud<pcl::PointXYZ> pc;
+  pcl::fromPCLPointCloud2(texturemesh.cloud, pc);
+  double center_z= 0;
+  double counter = 0;
+  for(int i = 0; i< pc.points.size(); i++)
+     if(pc.points[i].z!=0) {
+           center_z=center_z+pc.points[i].z;
+	   counter++;
+     }
+  center_z=center_z/counter;
+  Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+  transform_2.translation() << 0.0, 0.0, -center_z;
+  transform_2.rotate (Eigen::AngleAxisf (M_PI, Eigen::Vector3f::UnitZ()));
+  pcl::transformPointCloud (pc, pc, transform_2);
+  pcl::toPCLPointCloud2(pc, texturemesh.cloud);
+
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+  viewer->setBackgroundColor (0, 0, 0);
+  viewer->addTextureMesh(texturemesh, "texturemesh");
+  viewer->resetCameraViewpoint("texturemesh");
+  viewer->addCoordinateSystem (1);
+  viewer->initCameraParameters ();
+  while(!viewer->wasStopped())
+  {
+    viewer->spinOnce(100);
+    boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+  }
+
+  pcl::fromPCLPointCloud2(texturemesh.cloud, pc);
+  transform_2 = Eigen::Affine3f::Identity();
+  transform_2.rotate (Eigen::AngleAxisf (-M_PI, Eigen::Vector3f::UnitZ()));
+  transform_2.translation() << 0.0, 0.0, center_z;
+  pcl::transformPointCloud (pc, pc, transform_2);
+  pcl::toPCLPointCloud2(pc, texturemesh.cloud);
+  std::cout<<"...visualization finished" <<std::endl;
+}
+
+void viewCloud (pcl::PointCloud<pcl::PointXYZ>::ConstPtr pcptr)
+{
+  std::cout<<"\nvisualize...proceed with closing the viewer..."<<std::endl;
+  //transformation to the origin+rotation
+  double center_z= 0;
+  for(int i = 0; i< pcptr->points.size(); i++)
+     if(pcptr->points[i].z!=0)
+           center_z=center_z+pcptr->points[i].z;
+  center_z=center_z/countEntries(pcptr);
+  Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+  transform_2.translation() << 0.0, 0.0, -center_z;
+  transform_2.rotate (Eigen::AngleAxisf (M_PI, Eigen::Vector3f::UnitZ()));
+  pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
+  pcl::transformPointCloud (*pcptr, *transformed_cloud, transform_2);
+
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+  viewer->setBackgroundColor (0, 0, 0);
+  viewer->addPointCloud<pcl::PointXYZ> (transformed_cloud, "pcptr");
+  viewer->addCoordinateSystem (1); 
+  viewer->initCameraParameters ();
+  viewer->spinOnce(100);
+  while (!viewer->wasStopped())
+  {
+    viewer->spinOnce(100);
+    boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+  }
+  std::cout<<"...visualization finished" <<std::endl;
+}
+
+void viewCloud (pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr pcrgbptr)
+{
+  std::cout<<"\nvisualize...proceed with closing the viewer..."<<std::endl;
+  double center_z= 0;
+  for(int i = 0; i< pcrgbptr->points.size(); i++)
+     if(pcrgbptr->points[i].z!=0)
+           center_z=center_z+pcrgbptr->points[i].z;
+  center_z=center_z/countEntries(pcrgbptr);
+  Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+  transform_2.translation() << 0.0, 0.0, -center_z;
+  transform_2.rotate (Eigen::AngleAxisf (M_PI, Eigen::Vector3f::UnitZ()));
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
+  pcl::transformPointCloud (*pcrgbptr, *transformed_cloud, transform_2);
+
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+  viewer->setBackgroundColor (0, 0, 0);
+  pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(pcrgbptr);
+  viewer->addPointCloud<pcl::PointXYZRGB> (transformed_cloud, rgb, "pcrgbptr");
+  viewer->addCoordinateSystem ( 1.0 );
+  viewer->initCameraParameters ();
+  while (!viewer->wasStopped())
+  {
+    viewer->spinOnce(100);
+    boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+  }
+  std::cout<<"...visualization finished" <<std::endl;
+}
+
+void viewCloud (pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr pcrgbptr, pcl::PointCloud<pcl::Normal>::ConstPtr normptr)
+{
+  std::cout<<"\nvisualize...proceed with closing the viewer..."<<std::endl;
+  double center_z= 0;
+  for(int i = 0; i< pcrgbptr->points.size(); i++)
+     if(pcrgbptr->points[i].z!=0)
+           center_z=center_z+pcrgbptr->points[i].z;
+  center_z=center_z/countEntries(pcrgbptr);
+  Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+  transform_2.translation() << 0.0, 0.0, -center_z;
+  transform_2.rotate (Eigen::AngleAxisf (M_PI, Eigen::Vector3f::UnitZ()));
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
+  pcl::transformPointCloud (*pcrgbptr, *transformed_cloud, transform_2);
+  
+  pcl::PointCloud<pcl::Normal>::Ptr transformed_normals (new pcl::PointCloud<pcl::Normal>);
+  transformed_normals->width = normptr->width;  //Dimensions must be initialized to use 2-D indexing
+  transformed_normals->height = normptr->height;
+  transformed_normals->resize(transformed_normals->width*transformed_normals->height);
+  for(int i = 0; i < normptr->points.size(); i++)
+  {
+    transformed_normals->points[i].normal_x = -normptr->points[i].normal_x;
+    transformed_normals->points[i].normal_y = -normptr->points[i].normal_y;
+    transformed_normals->points[i].normal_z = normptr->points[i].normal_z;
+  }
+
+  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+  viewer->setBackgroundColor (0, 0, 0);
+  pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(transformed_cloud);
+  viewer->addPointCloud<pcl::PointXYZRGB> (transformed_cloud, rgb, "pcrgbptr");
+  viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "pcrgbptr");
+  viewer->addPointCloudNormals<pcl::PointXYZRGB, pcl::Normal> (transformed_cloud, transformed_normals, 10, 0.05, "normptr");
+  viewer->addCoordinateSystem (1.0);
+  viewer->initCameraParameters ();
+  while (!viewer->wasStopped())
+  {
+    viewer->spinOnce(100);
+    boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+  }
+  std::cout<<"...visualization finished" <<std::endl;
+}
