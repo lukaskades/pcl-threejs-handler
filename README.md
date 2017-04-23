@@ -5,6 +5,10 @@
   -->
 
 # pcl-threejs-handler
+
+![alt tag](https://cloud.githubusercontent.com/assets/22341762/25317575/7c800580-287b-11e7-9bcb-86c74c3e9ce6.png)
+Three.js Depth Data Viewer in the Browser with Normals and Wireframe - adapted and extended from https://github.com/spite/android-lens-blur-depth-extractor
+
 ## An application for visualisation, reconstruction and processing of point clouds via the PCL Point Cloud Library and Three.js
 
 Simple example for a usage of the **PCL Point Cloud Library** and **Three.js**. An easy console interface was programmed for first insights to the PCL Point Cloud Library. It is possible to safe the cloud with a rendered mesh and texture. This cloud can than be loaded with the help of Three.js in a Browser.
@@ -38,6 +42,9 @@ The simple console interface can be started via the 'Main' executable in the bin
     ./Main
 
 After saving the PointCloud, a .pcl file is created in the data directory and can be loaded again with the console interface. With the 'Build Three.js Data' option in the console one can create a .three js file. One can than view the cloud with the Depth Data Viewer in the root directory of the project by simply open **depthdataviewer.html** in a browser and loading the corresponding .three file in the data directory. The 'xcfn' in the file name indicates whether spatial coordinates (x), color information (c), normals (n) and faces (f ) are loadable.
+
+![alt tag](https://cloud.githubusercontent.com/assets/22341762/25317596/d4bf5ebc-287b-11e7-9ff3-641867e1afab.png)
+PCL 3D Viewer with User Interface on the console
 
 # Comments
 
